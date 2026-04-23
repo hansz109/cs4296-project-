@@ -1,0 +1,6 @@
+﻿run_id=20260423T211715Z_memory_S2
+profile=memory
+base_url=http://localhost
+scenario=S2
+concurrency=50
+duration_s=300

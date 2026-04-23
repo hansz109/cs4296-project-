@@ -1,0 +1,8 @@
+profile,scenario,rps_mean,rps_std,tpr_mean,tpr_std,failed_sum
+compute,S1,,,,,0.0
+compute,S2,,,,,0.0
+compute,S3,,,,,0.0
+general,S1,36.983333333333334,25.789731806799907,453.49583333333334,315.5275888871949,0.0
+memory,S1,,,,,0.0
+memory,S2,,,,,0.0
+memory,S3,,,,,0.0

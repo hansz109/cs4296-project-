@@ -9,9 +9,19 @@ cd "$(dirname "$0")/.."
 
 WP_CONTAINER="$(docker compose ps -q wordpress)"
 if [[ -z "${WP_CONTAINER}" ]]; then
-  echo "wordpress container not running. Run scripts/up.sh first." >&2
+  echo "wordpress container not running. Start the stack first." >&2
   exit 1
 fi
+
+# Install wp-cli (needs root to write /usr/local/bin)
+docker exec -u root "${WP_CONTAINER}" bash -lc '
+set -euo pipefail
+if ! command -v wp >/dev/null 2>&1; then
+  curl -sSLo /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+  php /tmp/wp-cli.phar --info >/dev/null
+  install -m 0755 /tmp/wp-cli.phar /usr/local/bin/wp
+fi
+'
 
 docker exec -u www-data "${WP_CONTAINER}" bash -lc '
 set -euo pipefail
@@ -19,17 +29,10 @@ cd /var/www/html
 
 if [[ ! -f wp-config.php ]]; then
   echo "WordPress not initialized via web installer yet."
-  echo "Open http://<EC2_IP>/ in browser and finish the initial setup first."
+  echo "Open http://localhost/ in browser and finish the initial setup first."
   exit 2
 fi
 
-if ! command -v wp >/dev/null 2>&1; then
-  curl -sSLo /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-  php /tmp/wp-cli.phar --info >/dev/null
-  install -m 0755 /tmp/wp-cli.phar /usr/local/bin/wp
-fi
-
-# Ensure pretty permalinks are enabled (optional, but stabilizes routing)
 wp rewrite structure "/%postname%/" --hard || true
 wp rewrite flush --hard || true
 
@@ -40,7 +43,7 @@ for i in 1 2 3 4 5; do
   fi
 done
 
-echo "Seeding complete. Example post id:"
+echo "Seeding complete. Example post list:"
 wp post list --post_type=post --format=table | head -n 10
 '
 

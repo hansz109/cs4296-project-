@@ -18,6 +18,16 @@ def parse_ab_file(path: Path) -> dict:
     failed = int(AB_FAILED_RE.search(txt).group(1)) if AB_FAILED_RE.search(txt) else None
     return {"file": path.name, "rps": rps, "time_per_request_ms": tpr, "failed_requests": failed}
 
+def parse_meta(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    out = {}
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            out[k.strip()] = v.strip()
+    return out
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -31,10 +41,12 @@ def main():
 
     rows = []
     for run_dir in sorted([p for p in results_dir.iterdir() if p.is_dir()]):
-        scenario = run_dir.name.split("_")[-1] if "_" in run_dir.name else ""
+        meta = parse_meta(run_dir / "meta.txt")
+        scenario = meta.get("scenario") or (run_dir.name.split("_")[-1] if "_" in run_dir.name else "")
+        profile = meta.get("profile") or ""
         for f in run_dir.glob("ab_*.txt"):
             rec = parse_ab_file(f)
-            rec.update({"run_id": run_dir.name, "scenario": scenario})
+            rec.update({"run_id": run_dir.name, "scenario": scenario, "profile": profile})
             rows.append(rec)
 
     if not rows:
@@ -43,31 +55,40 @@ def main():
     df = pd.DataFrame(rows)
     df.to_csv(out_dir / "ab_parsed.csv", index=False)
 
-    # Aggregate by scenario (mean over repeats and paths)
-    agg = df.groupby(["scenario"], dropna=False).agg(
+    # Aggregate by profile + scenario (mean over repeats and paths)
+    agg = df.groupby(["profile", "scenario"], dropna=False).agg(
         rps_mean=("rps", "mean"),
         rps_std=("rps", "std"),
         tpr_mean=("time_per_request_ms", "mean"),
         tpr_std=("time_per_request_ms", "std"),
         failed_sum=("failed_requests", "sum"),
     ).reset_index()
-    agg.to_csv(out_dir / "ab_summary_by_scenario.csv", index=False)
+    agg.to_csv(out_dir / "ab_summary_by_profile_scenario.csv", index=False)
 
-    # Simple plots
-    plt.figure(figsize=(8, 4))
-    plt.bar(agg["scenario"], agg["rps_mean"])
-    plt.ylabel("Requests per second (mean)")
-    plt.title("Throughput by scenario")
+    # Plot: throughput by scenario, separated by profile
+    profiles = [p for p in agg["profile"].unique() if isinstance(p, str)]
+    scenarios = [s for s in agg["scenario"].unique() if isinstance(s, str)]
+    scenarios = sorted(scenarios)
+    profiles = sorted(profiles)
+
+    def pivot(col: str) -> pd.DataFrame:
+        return agg.pivot(index="scenario", columns="profile", values=col).reindex(scenarios)
+
+    thr = pivot("rps_mean")
+    lat = pivot("tpr_mean")
+
+    ax = thr.plot(kind="bar", figsize=(9, 4))
+    ax.set_ylabel("Requests per second (mean)")
+    ax.set_title("Throughput by scenario (by profile)")
     plt.tight_layout()
-    plt.savefig(out_dir / "throughput_by_scenario.png", dpi=160)
+    plt.savefig(out_dir / "throughput_by_profile_scenario.png", dpi=160)
     plt.close()
 
-    plt.figure(figsize=(8, 4))
-    plt.bar(agg["scenario"], agg["tpr_mean"])
-    plt.ylabel("Time per request (ms, mean)")
-    plt.title("Latency (mean) by scenario")
+    ax = lat.plot(kind="bar", figsize=(9, 4))
+    ax.set_ylabel("Time per request (ms, mean)")
+    ax.set_title("Latency (mean) by scenario (by profile)")
     plt.tight_layout()
-    plt.savefig(out_dir / "latency_by_scenario.png", dpi=160)
+    plt.savefig(out_dir / "latency_by_profile_scenario.png", dpi=160)
     plt.close()
 
     print(f"Wrote: {out_dir}")

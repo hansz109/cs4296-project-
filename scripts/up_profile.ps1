@@ -1,10 +1,10 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [Parameter(Mandatory=$true)]
   [ValidateSet("general","compute","memory")]
   [string]$Profile
 )
+
+$ErrorActionPreference = "Stop"
 
 function Set-ProfileEnv($profile) {
   switch ($profile) {

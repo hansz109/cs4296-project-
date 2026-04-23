@@ -1,0 +1,6 @@
+﻿run_id=20260423T211713Z_memory_S1
+profile=memory
+base_url=http://localhost
+scenario=S1
+concurrency=10
+duration_s=180

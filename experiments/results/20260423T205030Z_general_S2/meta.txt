@@ -1,0 +1,6 @@
+﻿run_id=20260423T205030Z_general_S2
+profile=general
+base_url=http://localhost
+scenario=S2
+concurrency=50
+duration_s=300

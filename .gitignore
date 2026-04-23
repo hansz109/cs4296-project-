@@ -1,5 +1,5 @@
-experiments/results/
-experiments/summary/
+# We DO commit experiment outputs for this course artifact.
+# (Keep them reasonably sized; ab logs + CSV + PNG are fine.)
 .venv/
 __pycache__/
 *.pyc
