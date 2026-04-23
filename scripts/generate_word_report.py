@@ -57,6 +57,16 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo_root", default=".", help="path to repo root")
     ap.add_argument("--out", default="report/CS4296_report_template.docx")
+    ap.add_argument("--group_id", default="____")
+    ap.add_argument("--member", default="____")
+    ap.add_argument("--student_id", default="____")
+    ap.add_argument("--host_os", default="")
+    ap.add_argument("--host_os_version", default="")
+    ap.add_argument("--host_build", default="")
+    ap.add_argument("--host_cpu", default="")
+    ap.add_argument("--host_cores", default="")
+    ap.add_argument("--host_logical", default="")
+    ap.add_argument("--host_ram_gb", default="")
     args = ap.parse_args()
 
     root = Path(args.repo_root).resolve()
@@ -75,7 +85,7 @@ def main() -> None:
         "Project: Benchmarking WordPress Deployment Performance with Docker (Local Profiles)",
     )
 
-    doc.add_paragraph("Group ID: ____    Member(s): ____    Student ID(s): ____")
+    doc.add_paragraph(f"Group ID: {args.group_id}    Member(s): {args.member}    Student ID(s): {args.student_id}")
 
     doc.add_heading("Abstract (≤250 words)", level=1)
     add_placeholder(doc, "Abstract summary of goal, method, and key findings (≤250 words).")
@@ -93,7 +103,15 @@ def main() -> None:
     doc.add_paragraph(
         "Because AWS login was unavailable, we emulate three EC2-like profiles by applying Docker CPU/memory limits: general / compute / memory."
     )
-    add_placeholder(doc, "Provide your host machine specs (CPU, RAM, OS version).")
+    if any([args.host_os, args.host_cpu, args.host_ram_gb]):
+        doc.add_paragraph(
+            "Host machine specs: "
+            f"OS={args.host_os} (version {args.host_os_version}, build {args.host_build}); "
+            f"CPU={args.host_cpu} (cores={args.host_cores}, logical={args.host_logical}); "
+            f"RAM={args.host_ram_gb} GB."
+        )
+    else:
+        add_placeholder(doc, "Provide your host machine specs (CPU, RAM, OS version).")
 
     doc.add_heading("2.2 Workloads and metrics", level=2)
     doc.add_paragraph("Load generator: ApacheBench (ab) running inside WSL Ubuntu.")
@@ -129,7 +147,17 @@ def main() -> None:
     add_placeholder(doc, "Conclude in 3–4 sentences. Mention future work (e.g., caching, CDN, real cloud runs).")
 
     doc.add_heading("References", level=1)
-    add_placeholder(doc, "Add references you used (websites/tools/papers). Use IEEE style if possible.")
+    # References list (neutral, tool documentation only; no narrative writing)
+    refs = [
+        "[1] WordPress Docker image documentation, Docker Hub.",
+        "[2] MySQL Docker image documentation, Docker Hub.",
+        "[3] Nginx Docker image documentation, Docker Hub.",
+        "[4] Apache HTTP Server Project, ApacheBench (ab) documentation.",
+        "[5] Docker Desktop documentation, Docker Inc.",
+        "[6] Windows Subsystem for Linux (WSL) documentation, Microsoft.",
+    ]
+    for r in refs:
+        doc.add_paragraph(r, style="List Number")
 
     doc.add_page_break()
     doc.add_heading("Artifact Appendix (reproducibility)", level=1)
