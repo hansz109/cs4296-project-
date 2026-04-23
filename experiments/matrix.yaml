@@ -1,0 +1,38 @@
+platform: windows-docker-desktop
+
+# We cannot access AWS. We emulate 3 "instance types" by applying Docker CPU/memory limits.
+# These profiles are selected via:
+#   - PowerShell:  ./scripts/up_profile.ps1 -Profile general
+#   - Bash:        ./scripts/up_profile.sh --profile general
+profiles:
+  general:
+    cpus: 2
+    memory: 4g
+  compute:
+    cpus: 4
+    memory: 4g
+  memory:
+    cpus: 2
+    memory: 16g
+
+scenarios:
+  S1:
+    concurrency: 10
+    duration_s: 180
+    paths:
+      - /
+      - /?p=1
+  S2:
+    concurrency: 50
+    duration_s: 300
+    paths:
+      - /
+      - /?p=1
+  S3:
+    concurrency: 100
+    duration_s: 300
+    paths:
+      - /
+      - /?p=1
+
+repeats: 3
