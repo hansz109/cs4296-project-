@@ -1,0 +1,8 @@
+﻿run_id=20260424T040811Z_general_S3
+profile=general
+scenario=S3
+concurrency=100
+duration_s=300
+loadgen=docker_httpd_ab
+target=http://nginx
+network=cs4296-wordpress-benchmark_default

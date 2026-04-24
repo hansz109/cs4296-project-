@@ -13,7 +13,7 @@ if [[ -z "${WP_CONTAINER}" ]]; then
   exit 1
 fi
 
-docker exec -u www-data "${WP_CONTAINER}" bash -lc '
+docker exec "${WP_CONTAINER}" bash -lc '
 set -euo pipefail
 cd /var/www/html
 
@@ -23,11 +23,14 @@ if [[ ! -f wp-config.php ]]; then
   exit 2
 fi
 
-if ! command -v wp >/dev/null 2>&1; then
+if [[ ! -f /tmp/wp-cli.phar ]]; then
   curl -sSLo /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
   php /tmp/wp-cli.phar --info >/dev/null
-  install -m 0755 /tmp/wp-cli.phar /usr/local/bin/wp
 fi
+
+wp() {
+  runuser -u www-data -- php /tmp/wp-cli.phar "$@"
+}
 
 # Ensure pretty permalinks are enabled (optional, but stabilizes routing)
 wp rewrite structure "/%postname%/" --hard || true

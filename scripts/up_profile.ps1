@@ -1,10 +1,11 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [Parameter(Mandatory=$true)]
   [ValidateSet("general","compute","memory")]
-  [string]$Profile
+  [string]$Profile,
+  [switch]$SkipPull
 )
+
+$ErrorActionPreference = "Stop"
 
 function Set-ProfileEnv($profile) {
   switch ($profile) {
@@ -40,7 +41,9 @@ Set-Location $repoRoot
 
 Set-ProfileEnv $Profile
 
-docker compose pull
+if (-not $SkipPull) {
+  docker compose pull
+}
 docker compose up -d
 
 Write-Host "Started profile '$Profile'. Open: http://localhost/"
