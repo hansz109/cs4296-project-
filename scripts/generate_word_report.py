@@ -83,6 +83,7 @@ def main() -> None:
     summary_csv_scenario = root / "experiments" / "summary" / "ab_summary_by_scenario.csv"
     thr_png_scenario = root / "experiments" / "summary" / "throughput_by_scenario.png"
     lat_png_scenario = root / "experiments" / "summary" / "latency_by_scenario.png"
+    combined_png = root / "experiments" / "summary" / "s1_s2_s3_combined.png"
 
     def has_sufficient_metrics(df: pd.DataFrame) -> bool:
         if "rps_mean" not in df.columns:
@@ -163,17 +164,18 @@ def main() -> None:
         doc.add_paragraph("(Missing summary CSV: run analysis to generate experiments/summary/...)")
 
     doc.add_heading("3.1 Throughput", level=2)
-    if thr_png_profile.exists():
+    if combined_png.exists():
+        add_figure(doc, combined_png, "Figure 1. Combined S1/S2/S3 results (throughput + latency).")
+    elif thr_png_profile.exists() and lat_png_profile.exists():
         add_figure(doc, thr_png_profile, "Figure 1. Throughput (requests/sec mean) by scenario, grouped by profile.")
-    else:
-        add_figure(doc, thr_png_scenario, "Figure 1. Throughput (requests/sec mean) by scenario.")
     add_placeholder(doc, "Explain throughput trends and why profiles differ.")
 
     doc.add_heading("3.2 Latency", level=2)
-    if lat_png_profile.exists():
-        add_figure(doc, lat_png_profile, "Figure 2. Latency (time per request mean, ms) by scenario, grouped by profile.")
-    else:
-        add_figure(doc, lat_png_scenario, "Figure 2. Latency (time per request mean, ms) by scenario.")
+    if not combined_png.exists():
+        if lat_png_profile.exists():
+            add_figure(doc, lat_png_profile, "Figure 2. Latency (time per request mean, ms) by scenario, grouped by profile.")
+        else:
+            add_figure(doc, lat_png_scenario, "Figure 2. Latency (time per request mean, ms) by scenario.")
     add_placeholder(doc, "Explain latency trends and any bottlenecks observed.")
 
     doc.add_heading("4. Discussion: Validity and limitations", level=1)

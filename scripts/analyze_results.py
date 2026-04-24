@@ -55,6 +55,46 @@ def main():
     df = pd.DataFrame(rows)
     df.to_csv(out_dir / "ab_parsed.csv", index=False)
 
+    # Scenario-only aggregation (mean over repeats/paths/profiles with real metrics)
+    df_s = df.copy()
+    df_s["rps"] = pd.to_numeric(df_s["rps"], errors="coerce")
+    df_s["time_per_request_ms"] = pd.to_numeric(df_s["time_per_request_ms"], errors="coerce")
+    df_s["failed_requests"] = pd.to_numeric(df_s["failed_requests"], errors="coerce")
+    df_s = df_s[df_s["rps"].notna()].copy()
+
+    agg_s = (
+        df_s.groupby(["scenario"], dropna=False)
+        .agg(
+            rps_mean=("rps", "mean"),
+            rps_std=("rps", "std"),
+            tpr_mean=("time_per_request_ms", "mean"),
+            tpr_std=("time_per_request_ms", "std"),
+            failed_sum=("failed_requests", "sum"),
+        )
+        .reset_index()
+    )
+    agg_s.to_csv(out_dir / "ab_summary_by_scenario.csv", index=False)
+
+    # Scenario-only plots (single series)
+    scenarios_s = sorted([s for s in agg_s["scenario"].unique() if isinstance(s, str)])
+    agg_s = agg_s.set_index("scenario").reindex(scenarios_s).reset_index()
+
+    plt.figure(figsize=(8, 4))
+    plt.bar(agg_s["scenario"], agg_s["rps_mean"])
+    plt.ylabel("Requests per second (mean)")
+    plt.title("Throughput by scenario")
+    plt.tight_layout()
+    plt.savefig(out_dir / "throughput_by_scenario.png", dpi=160)
+    plt.close()
+
+    plt.figure(figsize=(8, 4))
+    plt.bar(agg_s["scenario"], agg_s["tpr_mean"])
+    plt.ylabel("Time per request (ms, mean)")
+    plt.title("Latency (mean) by scenario")
+    plt.tight_layout()
+    plt.savefig(out_dir / "latency_by_scenario.png", dpi=160)
+    plt.close()
+
     # Aggregate by profile + scenario (mean over repeats and paths)
     agg = df.groupby(["profile", "scenario"], dropna=False).agg(
         rps_mean=("rps", "mean"),

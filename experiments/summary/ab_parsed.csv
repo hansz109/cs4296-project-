@@ -41,3 +41,9 @@ ab___p_1_rep3.txt,,,,20260423T211717Z_memory_S3,S3,memory
 ab___rep1.txt,,,,20260423T211717Z_memory_S3,S3,memory
 ab___rep2.txt,,,,20260423T211717Z_memory_S3,S3,memory
 ab___rep3.txt,,,,20260423T211717Z_memory_S3,S3,memory
+ab_p_1_rep1.txt,6.58,15204.39,0.0,20260424T040811Z_general_S3,S3,general
+ab_root_rep1.txt,6.34,15777.271,0.0,20260424T040811Z_general_S3,S3,general
+ab_p_1_rep1.txt,4.28,11676.946,0.0,20260424T041011Z_general_S2,S2,general
+ab_p_1_rep2.txt,,,,20260424T041011Z_general_S2,S2,general
+ab_root_rep1.txt,2.98,16766.549,0.0,20260424T041011Z_general_S2,S2,general
+ab_root_rep2.txt,5.73,8726.786,0.0,20260424T041011Z_general_S2,S2,general
