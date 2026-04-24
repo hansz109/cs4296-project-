@@ -1,0 +1,6 @@
+﻿run_id=20260423T211709Z_compute_S3
+profile=compute
+base_url=http://localhost
+scenario=S3
+concurrency=100
+duration_s=300
