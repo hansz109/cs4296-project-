@@ -6,7 +6,10 @@ from pathlib import Path
 import pandas as pd
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Inches
+from docx.shared import Inches, Pt
+from docx.oxml.ns import qn
+from docx.enum.text import WD_LINE_SPACING
+from docx.shared import Mm
 
 
 def add_title(doc: Document, title: str, subtitle: str) -> None:
@@ -60,6 +63,31 @@ def add_figure(doc: Document, img_path: Path, caption: str) -> None:
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
+def apply_required_formatting(doc: Document, paper: str = "letter") -> None:
+    # Font: Times New Roman 12pt (apply to Normal style)
+    normal = doc.styles["Normal"]
+    normal.font.name = "Times New Roman"
+    normal.font.size = Pt(12)
+    # Ensure East Asia font mapping (Word sometimes uses this for CJK)
+    normal._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+
+    # Single spaced
+    pf = normal.paragraph_format
+    pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+
+    # Page size: A4 or US Letter
+    section = doc.sections[0]
+    if paper.lower() == "a4":
+        section.page_width = Mm(210)
+        section.page_height = Mm(297)
+    else:
+        # US Letter 8.5x11 in mm
+        section.page_width = Mm(215.9)
+        section.page_height = Mm(279.4)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo_root", default=".", help="path to repo root")
@@ -74,6 +102,7 @@ def main() -> None:
     ap.add_argument("--host_cores", default="")
     ap.add_argument("--host_logical", default="")
     ap.add_argument("--host_ram_gb", default="")
+    ap.add_argument("--paper", choices=["letter", "a4"], default="letter")
     ap.add_argument(
         "--auto_write",
         action="store_true",
@@ -105,14 +134,11 @@ def main() -> None:
         return (s.notna().sum() / max(len(s), 1)) >= 0.5
 
     doc = Document()
+    apply_required_formatting(doc, paper=args.paper)
 
-    add_title(
-        doc,
-        "CS4296 Cloud Computing (Spring 2026) — Final Report",
-        "Project: Benchmarking WordPress Deployment Performance with Docker (Local Profiles)",
-    )
+    add_title(doc, "Benchmarking WordPress Deployment Performance with Docker", "CS4296 Cloud Computing (Spring 2026)")
 
-    doc.add_paragraph(f"Group ID: {args.group_id}    Member(s): {args.member}    Student ID(s): {args.student_id}")
+    doc.add_paragraph(f"Authors: {args.member} (Student ID: {args.student_id}), Group ID: {args.group_id}")
 
     doc.add_heading("Abstract (≤250 words)", level=1)
     if args.auto_write:
@@ -150,8 +176,8 @@ def main() -> None:
         add_placeholder(doc, "Project objective and what is benchmarked.")
         add_placeholder(doc, "Contributions / what you found (high-level).")
 
-    doc.add_heading("2. Methodology", level=1)
-    doc.add_heading("2.1 System setup", level=2)
+    doc.add_heading("2. Main body", level=1)
+    doc.add_heading("2.1 System design and setup", level=2)
     doc.add_paragraph(
         "Stack: Nginx (reverse proxy) → WordPress (PHP-FPM) → MySQL, deployed via Docker Compose on Windows + Docker Desktop."
     )
@@ -168,13 +194,13 @@ def main() -> None:
     else:
         add_placeholder(doc, "Provide your host machine specs (CPU, RAM, OS version).")
 
-    doc.add_heading("2.2 Workloads and metrics", level=2)
-    doc.add_paragraph("Load generator: ApacheBench (ab) running inside WSL Ubuntu.")
+    doc.add_heading("2.2 Workloads, metrics, and evaluation method", level=2)
+    doc.add_paragraph("Load generator: ApacheBench (ab) (run locally in a controlled environment).")
     doc.add_paragraph("Scenarios: S1 (c=10, 180s), S2 (c=50, 300s), S3 (c=100, 300s), each repeated 3 times.")
     doc.add_paragraph("Endpoints: / and /?p=1")
     doc.add_paragraph("Metrics: requests/sec, time per request (mean), failed requests; plus docker stats sampling.")
 
-    doc.add_heading("3. Results", level=1)
+    doc.add_heading("2.3 Results and observations", level=2)
     table_title = "Table 1. Aggregated results (from artifact outputs)."
     if summary_csv_profile.exists():
         dfp = pd.read_csv(summary_csv_profile)
@@ -201,7 +227,7 @@ def main() -> None:
     else:
         doc.add_paragraph("(Missing summary CSV: run analysis to generate experiments/summary/...)")
 
-    doc.add_heading("3.1 Throughput", level=2)
+    doc.add_heading("2.3.1 Throughput and latency", level=3)
     if combined_png.exists():
         add_figure(doc, combined_png, "Figure 1. Combined S1/S2/S3 results (throughput + latency).")
     elif thr_png_profile.exists() and lat_png_profile.exists():
@@ -219,7 +245,7 @@ def main() -> None:
     else:
         add_placeholder(doc, "Explain throughput trends and why profiles differ.")
 
-    doc.add_heading("3.2 Latency", level=2)
+    doc.add_heading("2.3.2 Interpretation", level=3)
     if not combined_png.exists():
         if lat_png_profile.exists():
             add_figure(doc, lat_png_profile, "Figure 2. Latency (time per request mean, ms) by scenario, grouped by profile.")
@@ -239,49 +265,47 @@ def main() -> None:
     else:
         add_placeholder(doc, "Explain latency trends and any bottlenecks observed.")
 
-    doc.add_heading("4. Discussion: Validity and limitations", level=1)
-    doc.add_paragraph(
-        "This artifact uses local container resource limits to emulate instance-type differences. "
-        "It does not capture cloud networking variability, EBS behavior, or CPU microarchitecture differences across real EC2 families."
-    )
-    if args.auto_write:
-        bullets = [
-            "Local emulation via container resource limits captures CPU and memory constraints, but does not replicate cloud networking variability, storage latency (e.g., EBS), or noisy‑neighbor effects found on shared infrastructure.",
-            "ApacheBench primarily measures steady‑state request handling for simple HTTP workloads; it does not model realistic user think time, browser behavior, or mixed request distributions typical of production sites.",
-            "The benchmark focuses on mean metrics. Tail latency (e.g., p95/p99) can be more indicative of user experience under contention but is not fully characterized here.",
-            "WordPress performance is sensitive to themes, plugins, and caching configuration. Results obtained with this minimal seeded dataset may differ for content‑heavy sites or with additional plugins enabled.",
-            "Because some profiles/scenarios may have incomplete data in earlier runs, conclusions are drawn from the available validated outputs and should be interpreted as indicative trends rather than definitive capacity estimates.",
-        ]
-        for b in bullets:
-            doc.add_paragraph(b, style="List Bullet")
-    else:
-        add_placeholder(doc, "Write 3–6 bullet points on limitations and how they might affect conclusions.")
-
-    doc.add_heading("5. Conclusion and future work", level=1)
+    doc.add_heading("3. Conclusion and future work", level=1)
     if args.auto_write:
         add_academic_paragraphs(
             doc,
             [
-                "This project provides a reproducible artifact for benchmarking a containerized WordPress deployment under controlled resource profiles and standardized workloads. "
-                "The results show that increasing concurrency can substantially increase latency and does not always translate into proportional throughput gains once service bottlenecks are reached. "
-                "Future work should validate these findings on real cloud instances, extend the workload model to include mixed request patterns and tail‑latency metrics, and evaluate optimizations such as full‑page caching, object caching (e.g., Redis), database indexing/tuning, and CDN integration to improve performance at scale.",
+                "In summary, we implemented a reproducible WordPress benchmarking artifact based on Docker Compose and evaluated it under three workload scenarios (S1–S3). "
+                "The results indicate that as concurrency increases, mean latency rises substantially due to queueing and contention, and throughput does not improve proportionally once bottlenecks are reached. "
+                "Future work should validate the evaluation on real cloud instances and storage/network configurations, incorporate caching strategies (page/object caching), and extend analysis to tail-latency metrics to better reflect production behavior.",
             ],
         )
+        doc.add_heading("4. Discussion: Validity and limitations", level=1)
+        doc.add_paragraph(
+            "This artifact uses local container resource limits to emulate instance-type differences. "
+            "It does not capture cloud networking variability, storage behavior, or microarchitectural differences across real EC2 families."
+        )
+        bullets = [
+            "Local emulation via container resource limits captures CPU and memory constraints, but does not replicate cloud networking variability, storage latency (e.g., EBS), or noisy‑neighbor effects found on shared infrastructure.",
+            "ApacheBench measures steady‑state request handling for simple HTTP workloads; it does not model user think time, browser behavior, or realistic mixed request distributions.",
+            "The evaluation emphasizes mean metrics. Tail latency (e.g., p95/p99) can better reflect user experience under contention but is not fully characterized here.",
+            "WordPress performance depends on themes, plugins, and caching configuration; results from a minimal seeded dataset may not generalize to content‑heavy production sites.",
+            "Some historical runs contain incomplete outputs; conclusions are drawn from validated runs and should be interpreted as indicative trends rather than definitive capacity claims.",
+        ]
+        for b in bullets:
+            doc.add_paragraph(b, style="List Bullet")
     else:
-        add_placeholder(doc, "Conclude in 3–4 sentences. Mention future work (e.g., caching, CDN, real cloud runs).")
+        add_placeholder(doc, "Conclude in 3–4 sentences, and describe future work.")
+
+    # (Conclusion already added above. Keep this block removed to satisfy the required section structure.)
 
     doc.add_heading("References", level=1)
-    # References list (neutral, tool documentation only; no narrative writing)
+    # IEEE-like references (author/org, title, source, year, url, access date)
     refs = [
-        "[1] WordPress Docker image documentation, Docker Hub.",
-        "[2] MySQL Docker image documentation, Docker Hub.",
-        "[3] Nginx Docker image documentation, Docker Hub.",
-        "[4] Apache HTTP Server Project, ApacheBench (ab) documentation.",
-        "[5] Docker Desktop documentation, Docker Inc.",
-        "[6] Windows Subsystem for Linux (WSL) documentation, Microsoft.",
+        "[1] Docker Inc., \"Docker Desktop Documentation,\" 2026. [Online]. Available: https://docs.docker.com/desktop/. Accessed: 2026-04-24.",
+        "[2] Docker, \"WordPress Docker Image,\" Docker Hub. [Online]. Available: https://hub.docker.com/_/wordpress. Accessed: 2026-04-24.",
+        "[3] Docker, \"MySQL Docker Image,\" Docker Hub. [Online]. Available: https://hub.docker.com/_/mysql. Accessed: 2026-04-24.",
+        "[4] Docker, \"Nginx Docker Image,\" Docker Hub. [Online]. Available: https://hub.docker.com/_/nginx. Accessed: 2026-04-24.",
+        "[5] Apache Software Foundation, \"Apache HTTP Server Documentation: ab (ApacheBench),\" 2026. [Online]. Available: https://httpd.apache.org/docs/2.4/programs/ab.html. Accessed: 2026-04-24.",
+        "[6] Microsoft, \"Windows Subsystem for Linux Documentation,\" 2026. [Online]. Available: https://learn.microsoft.com/windows/wsl/. Accessed: 2026-04-24.",
     ]
     for r in refs:
-        doc.add_paragraph(r, style="List Number")
+        doc.add_paragraph(r)
 
     doc.add_page_break()
     doc.add_heading("Artifact Appendix (reproducibility)", level=1)
