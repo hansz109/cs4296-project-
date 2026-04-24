@@ -308,29 +308,110 @@ def main() -> None:
         doc.add_paragraph(r)
 
     doc.add_page_break()
-    doc.add_heading("Artifact Appendix (reproducibility)", level=1)
-    doc.add_paragraph("Repository: https://github.com/hansz109/cs4296-project-")
-    doc.add_paragraph("Prerequisites: Docker Desktop, WSL Ubuntu, Python 3.11+")
-    doc.add_paragraph("Reproduce (high level):")
-    steps = [
-        r"1) Start stack: .\scripts\up_profile.ps1 -Profile general",
-        r"2) Seed content: .\scripts\seed_wp.ps1",
-        r"3) Install ab in WSL: .\scripts\install_ab_wsl.ps1",
-        r"4) Run benchmarks: .\scripts\run_bench_wsl.ps1 -Profile <general|compute|memory> -Scenario <S1|S2|S3> -Repeat 3",
-        r"5) Analyze: python scripts\analyze_results.py --results_dir experiments\results --out_dir experiments\summary",
+    doc.add_heading("Artifact Appendix (Software Artifact)", level=1)
+
+    # This appendix is intentionally detailed to support artifact evaluation and reproducibility.
+    repo_url = "https://github.com/hansz109/cs4296-project-"
+    doc.add_paragraph(f"Artifact repository (public GitHub): {repo_url}")
+
+    doc.add_heading("A.1 Artifact overview", level=2)
+    doc.add_paragraph(
+        "This software artifact contains the complete workflow used in this project, including: "
+        "(i) infrastructure-as-code for deploying WordPress via Docker Compose, "
+        "(ii) scripts to seed content and run workloads, "
+        "(iii) raw benchmark outputs and metadata, and "
+        "(iv) analysis scripts that aggregate results into CSV summaries and figures."
+    )
+
+    doc.add_heading("A.2 Artifact contents (what is included)", level=2)
+    bullets = [
+        "Source code and scripts under `scripts/` to start/stop the stack, seed WordPress, run benchmarks, and generate the report.",
+        "Deployment configuration (`docker-compose.yml` and `nginx/` config).",
+        "Experiment plan (`experiments/matrix.yaml`).",
+        "Raw outputs under `experiments/results/` (ApacheBench logs and per-run `meta.txt`).",
+        "Aggregated outputs under `experiments/summary/` (CSV + PNG plots, including a combined S1/S2/S3 figure).",
+        "A Word report template generated from the latest summaries (`report/CS4296_report_template.docx`).",
     ]
-    for s in steps:
+    for b in bullets:
+        doc.add_paragraph(b, style="List Bullet")
+
+    doc.add_heading("A.3 Dependencies (software/hardware)", level=2)
+    doc.add_paragraph("Hardware (minimum recommended):")
+    hw = [
+        "x86-64 machine with at least 8 GB RAM (16 GB recommended for stable runs at higher concurrency).",
+        "At least 4 logical CPU cores recommended.",
+        "Disk space: a few GB for Docker images, containers, and result logs.",
+    ]
+    for b in hw:
+        doc.add_paragraph(b, style="List Bullet")
+
+    doc.add_paragraph("Software:")
+    sw = [
+        "Windows 10/11 with Docker Desktop (Linux containers).",
+        "Python 3.11+ (used for analysis and report generation).",
+        "Git (to clone and reproduce the versioned workflow).",
+        "Optional: WSL2 Ubuntu if using WSL-based load generation; otherwise the artifact supports a containerized load generator.",
+    ]
+    for b in sw:
+        doc.add_paragraph(b, style="List Bullet")
+
+    doc.add_heading("A.4 Setup instructions", level=2)
+    setup_steps = [
+        r"1) Clone: `git clone https://github.com/hansz109/cs4296-project-.git`",
+        r"2) Enter repo: `cd cs4296-wordpress-benchmark`",
+        r"3) Create venv + deps: `python -m venv .venv` then `.\.venv\Scripts\python.exe -m pip install -r requirements.txt`",
+        r"4) Ensure Docker Desktop is running (Docker engine reachable).",
+    ]
+    for s in setup_steps:
         doc.add_paragraph(s, style="List Number")
 
-    doc.add_paragraph("Expected outputs:")
-    outs = [
-        r"- experiments\results\<RUN_ID>\ab_*.txt, meta.txt, docker_stats.csv",
-        r"- experiments\summary\ab_summary_by_profile_scenario.csv",
-        r"- experiments\summary\throughput_by_profile_scenario.png",
-        r"- experiments\summary\latency_by_profile_scenario.png",
+    doc.add_heading("A.5 Running the experiments (workflows)", level=2)
+    doc.add_paragraph(
+        "The artifact provides a scripted workflow to start the stack, seed WordPress, run the benchmark scenarios (S1–S3), and store raw outputs under `experiments/results/`."
+    )
+    run_steps = [
+        r"1) Start a profile: `.\scripts\up_profile.ps1 -Profile general` (or compute/memory).",
+        r"2) Seed content: `wsl bash scripts/seed_wp.sh` (or use `.\scripts\seed_wp.ps1` if preferred).",
+        r"3) Run benchmarks: Use `.\scripts\run_bench_docker.ps1 -Profile <general|compute|memory> -Scenario <S1|S2|S3> -Repeat 3`.",
+        r"   (This uses a portable containerized ApacheBench image to avoid WSL↔Windows networking instability.)",
+        r"4) Repeat step 3 for S1, S2, S3 and for each profile you wish to evaluate.",
     ]
-    for o in outs:
-        doc.add_paragraph(o, style="List Bullet")
+    for s in run_steps:
+        doc.add_paragraph(s, style="List Number")
+
+    doc.add_heading("A.6 Analysis and expected outputs (validation)", level=2)
+    doc.add_paragraph(
+        "After benchmarks complete, run the analysis pipeline to parse ApacheBench logs and generate summary CSVs and plots."
+    )
+    analyze_steps = [
+        r"1) Analyze: `.\.venv\Scripts\python.exe scripts\analyze_results.py --results_dir experiments\results --out_dir experiments\summary`",
+        r"2) (Optional) Combined S1/S2/S3 plot: `.\.venv\Scripts\python.exe scripts\make_combined_figure.py --summary_csv experiments/summary/ab_summary_by_scenario.csv --out experiments/summary/s1_s2_s3_combined.png`",
+        r"3) Regenerate report: `.\.venv\Scripts\python.exe scripts\generate_word_report.py --auto_write --paper a4 ...`",
+    ]
+    for s in analyze_steps:
+        doc.add_paragraph(s, style="List Number")
+
+    doc.add_paragraph("Expected outputs to validate correctness:")
+    expected = [
+        "`experiments/results/<RUN_ID>/meta.txt` with scenario/profile metadata.",
+        "`experiments/results/<RUN_ID>/ab_*.txt` containing lines such as `Requests per second:` and `Time per request:`.",
+        "`experiments/summary/ab_parsed.csv` (parsed per-file metrics).",
+        "`experiments/summary/ab_summary_by_profile_scenario.csv` and `ab_summary_by_scenario.csv` (aggregated metrics).",
+        "`experiments/summary/s1_s2_s3_combined.png` (single figure combining S1–S3).",
+        "Updated `report/CS4296_report_template.docx` embedding the latest figures and tables.",
+    ]
+    for b in expected:
+        doc.add_paragraph(b, style="List Bullet")
+
+    doc.add_heading("A.7 Notes on portability and workflow automation", level=2)
+    doc.add_paragraph(
+        "To improve portability, the artifact supports a containerized load generator (ApacheBench inside an `httpd` container) "
+        "and a Python-based analysis/report pipeline. This reduces host-specific dependencies and standardizes the evaluation workflow."
+    )
+    doc.add_paragraph(
+        "Optional self-contained packaging (encouraged but not required): the entire stack already runs via Docker Compose. "
+        "A reviewer can reproduce the experiments by starting Docker Desktop and running the provided scripts without installing WordPress/MySQL/Nginx directly on the host."
+    )
 
     doc.save(out_path)
     print(f"Wrote: {out_path}")
