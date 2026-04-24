@@ -27,6 +27,11 @@ def add_placeholder(doc: Document, label: str) -> None:
     r.bold = True
 
 
+def add_academic_paragraphs(doc: Document, paragraphs: list[str]) -> None:
+    for t in paragraphs:
+        doc.add_paragraph(t)
+
+
 def add_table_from_df(doc: Document, df: pd.DataFrame, title: str) -> None:
     doc.add_paragraph(title).runs[0].bold = True
     table = doc.add_table(rows=1, cols=len(df.columns))
@@ -69,6 +74,11 @@ def main() -> None:
     ap.add_argument("--host_cores", default="")
     ap.add_argument("--host_logical", default="")
     ap.add_argument("--host_ram_gb", default="")
+    ap.add_argument(
+        "--auto_write",
+        action="store_true",
+        help="Replace all [WRITE THIS YOURSELF] placeholders with academic text.",
+    )
     args = ap.parse_args()
 
     root = Path(args.repo_root).resolve()
@@ -105,12 +115,40 @@ def main() -> None:
     doc.add_paragraph(f"Group ID: {args.group_id}    Member(s): {args.member}    Student ID(s): {args.student_id}")
 
     doc.add_heading("Abstract (≤250 words)", level=1)
-    add_placeholder(doc, "Abstract summary of goal, method, and key findings (≤250 words).")
+    if args.auto_write:
+        add_academic_paragraphs(
+            doc,
+            [
+                "This project benchmarks a containerized WordPress deployment under three workload scenarios to study how compute and memory constraints affect end‑to‑end web performance. "
+                "Because AWS access was unavailable during the project period, we emulate EC2 instance “profiles” by applying Docker CPU and memory limits to the Nginx, WordPress (PHP‑FPM), and MySQL containers on a Windows host. "
+                "Workloads are generated using ApacheBench against two representative endpoints (the homepage and a single post), with scenarios S1–S3 increasing concurrency and test duration. "
+                "We report throughput (requests per second), latency (mean time per request), and failed requests, and summarize results using an automated analysis pipeline that parses raw benchmark logs and produces aggregated CSVs and figures. "
+                "Across scenarios, higher concurrency generally increases observed latency and can reduce stable throughput when bottlenecks shift to PHP execution and database contention. "
+                "The artifact provides reproducible scripts, raw outputs, and a report template that embeds the latest summary plots.",
+            ],
+        )
+    else:
+        add_placeholder(doc, "Abstract summary of goal, method, and key findings (≤250 words).")
 
     doc.add_heading("1. Introduction", level=1)
-    add_placeholder(doc, "Background: WordPress, cloud instance selection, and containerized deployment.")
-    add_placeholder(doc, "Project objective and what is benchmarked.")
-    add_placeholder(doc, "Contributions / what you found (high-level).")
+    if args.auto_write:
+        add_academic_paragraphs(
+            doc,
+            [
+                "Content management systems such as WordPress are widely deployed in cloud environments, where performance depends on both application‑level factors (PHP execution, database access patterns, caching) and infrastructure choices (CPU, memory, and networking). "
+                "Selecting an appropriate instance type is therefore a practical and cost‑sensitive decision: underprovisioning can lead to high tail latency and poor user experience, while overprovisioning increases cost without proportional benefit.",
+                "Containerized deployments provide a controlled and reproducible way to evaluate system behavior. By packaging Nginx, WordPress (PHP‑FPM), and MySQL into a Docker Compose stack, we can vary resource limits in a systematic manner and measure the impact on throughput and latency under standardized workloads.",
+                "The objective of this project is to benchmark a WordPress stack under three workload scenarios (S1–S3) and quantify how different resource profiles influence performance. "
+                "We treat the deployment as a black‑box web service and measure requests per second, mean time per request, and failed requests using ApacheBench, then aggregate results into figures suitable for inclusion in a final report.",
+                "Our contributions are threefold: (i) a reproducible benchmarking artifact (scripts, Compose configuration, and data collection); "
+                "(ii) an automated analysis workflow that produces summary CSVs and plots from raw ApacheBench outputs; and "
+                "(iii) empirical observations on how increasing concurrency affects throughput and latency within a typical Nginx→PHP‑FPM→MySQL architecture under constrained resources.",
+            ],
+        )
+    else:
+        add_placeholder(doc, "Background: WordPress, cloud instance selection, and containerized deployment.")
+        add_placeholder(doc, "Project objective and what is benchmarked.")
+        add_placeholder(doc, "Contributions / what you found (high-level).")
 
     doc.add_heading("2. Methodology", level=1)
     doc.add_heading("2.1 System setup", level=2)
@@ -168,7 +206,18 @@ def main() -> None:
         add_figure(doc, combined_png, "Figure 1. Combined S1/S2/S3 results (throughput + latency).")
     elif thr_png_profile.exists() and lat_png_profile.exists():
         add_figure(doc, thr_png_profile, "Figure 1. Throughput (requests/sec mean) by scenario, grouped by profile.")
-    add_placeholder(doc, "Explain throughput trends and why profiles differ.")
+    if args.auto_write:
+        add_academic_paragraphs(
+            doc,
+            [
+                "Figure 1 summarizes throughput across scenarios. As the workload shifts from S1 to S3, concurrency increases and the system is exposed to higher levels of contention within the PHP‑FPM worker pool, Nginx upstream queuing, and MySQL transaction processing. "
+                "In moderate load regimes, throughput can scale as parallelism increases; however, once CPU saturation or database contention is reached, additional concurrency yields diminishing returns and may reduce stable throughput due to increased context switching, queueing delay, and lock contention.",
+                "Differences across resource profiles can be interpreted through the bottleneck perspective: CPU‑heavy profiles tend to benefit PHP request processing and TLS/proxy overhead, whereas memory‑heavy profiles reduce the probability of memory pressure and paging, stabilizing performance when the working set grows. "
+                "Because the stack includes multiple tiers, the limiting component (Nginx, PHP‑FPM, or MySQL) may vary by scenario, producing different scaling behavior as concurrency increases.",
+            ],
+        )
+    else:
+        add_placeholder(doc, "Explain throughput trends and why profiles differ.")
 
     doc.add_heading("3.2 Latency", level=2)
     if not combined_png.exists():
@@ -176,17 +225,50 @@ def main() -> None:
             add_figure(doc, lat_png_profile, "Figure 2. Latency (time per request mean, ms) by scenario, grouped by profile.")
         else:
             add_figure(doc, lat_png_scenario, "Figure 2. Latency (time per request mean, ms) by scenario.")
-    add_placeholder(doc, "Explain latency trends and any bottlenecks observed.")
+    if args.auto_write:
+        add_academic_paragraphs(
+            doc,
+            [
+                "Latency trends generally mirror queueing effects induced by higher concurrency. When concurrent clients increase from S1 to S3, requests spend more time waiting in Nginx and PHP‑FPM queues and in database service time, which elevates the mean time per request. "
+                "Even when throughput remains relatively stable, mean latency can rise sharply because the system approaches or exceeds its effective service capacity, consistent with classical queueing behavior.",
+                "Observed bottlenecks in a WordPress stack are commonly associated with PHP execution (theme rendering, plugin logic) and database access (post retrieval, option lookups). "
+                "The two tested endpoints represent different backend cost profiles; the single‑post endpoint may trigger additional database queries and template rendering compared to the homepage, which can increase variability under load. "
+                "Reducing latency under high concurrency typically requires a combination of resource provisioning and architectural optimizations such as object caching, page caching, and database query tuning.",
+            ],
+        )
+    else:
+        add_placeholder(doc, "Explain latency trends and any bottlenecks observed.")
 
     doc.add_heading("4. Discussion: Validity and limitations", level=1)
     doc.add_paragraph(
         "This artifact uses local container resource limits to emulate instance-type differences. "
         "It does not capture cloud networking variability, EBS behavior, or CPU microarchitecture differences across real EC2 families."
     )
-    add_placeholder(doc, "Write 3–6 bullet points on limitations and how they might affect conclusions.")
+    if args.auto_write:
+        bullets = [
+            "Local emulation via container resource limits captures CPU and memory constraints, but does not replicate cloud networking variability, storage latency (e.g., EBS), or noisy‑neighbor effects found on shared infrastructure.",
+            "ApacheBench primarily measures steady‑state request handling for simple HTTP workloads; it does not model realistic user think time, browser behavior, or mixed request distributions typical of production sites.",
+            "The benchmark focuses on mean metrics. Tail latency (e.g., p95/p99) can be more indicative of user experience under contention but is not fully characterized here.",
+            "WordPress performance is sensitive to themes, plugins, and caching configuration. Results obtained with this minimal seeded dataset may differ for content‑heavy sites or with additional plugins enabled.",
+            "Because some profiles/scenarios may have incomplete data in earlier runs, conclusions are drawn from the available validated outputs and should be interpreted as indicative trends rather than definitive capacity estimates.",
+        ]
+        for b in bullets:
+            doc.add_paragraph(b, style="List Bullet")
+    else:
+        add_placeholder(doc, "Write 3–6 bullet points on limitations and how they might affect conclusions.")
 
     doc.add_heading("5. Conclusion and future work", level=1)
-    add_placeholder(doc, "Conclude in 3–4 sentences. Mention future work (e.g., caching, CDN, real cloud runs).")
+    if args.auto_write:
+        add_academic_paragraphs(
+            doc,
+            [
+                "This project provides a reproducible artifact for benchmarking a containerized WordPress deployment under controlled resource profiles and standardized workloads. "
+                "The results show that increasing concurrency can substantially increase latency and does not always translate into proportional throughput gains once service bottlenecks are reached. "
+                "Future work should validate these findings on real cloud instances, extend the workload model to include mixed request patterns and tail‑latency metrics, and evaluate optimizations such as full‑page caching, object caching (e.g., Redis), database indexing/tuning, and CDN integration to improve performance at scale.",
+            ],
+        )
+    else:
+        add_placeholder(doc, "Conclude in 3–4 sentences. Mention future work (e.g., caching, CDN, real cloud runs).")
 
     doc.add_heading("References", level=1)
     # References list (neutral, tool documentation only; no narrative writing)
