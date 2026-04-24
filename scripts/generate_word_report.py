@@ -38,7 +38,9 @@ def add_table_from_df(doc: Document, df: pd.DataFrame, title: str) -> None:
         cells = table.add_row().cells
         for i, c in enumerate(df.columns):
             v = row[c]
-            if isinstance(v, float):
+            if pd.isna(v):
+                cells[i].text = ""
+            elif isinstance(v, float):
                 cells[i].text = f"{v:.3f}"
             else:
                 cells[i].text = str(v)
@@ -73,9 +75,23 @@ def main() -> None:
     out_path = (root / args.out).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    summary_csv = root / "experiments" / "summary" / "ab_summary_by_profile_scenario.csv"
-    thr_png = root / "experiments" / "summary" / "throughput_by_profile_scenario.png"
-    lat_png = root / "experiments" / "summary" / "latency_by_profile_scenario.png"
+    # Prefer profile-by-scenario outputs if present and not mostly empty.
+    summary_csv_profile = root / "experiments" / "summary" / "ab_summary_by_profile_scenario.csv"
+    thr_png_profile = root / "experiments" / "summary" / "throughput_by_profile_scenario.png"
+    lat_png_profile = root / "experiments" / "summary" / "latency_by_profile_scenario.png"
+
+    summary_csv_scenario = root / "experiments" / "summary" / "ab_summary_by_scenario.csv"
+    thr_png_scenario = root / "experiments" / "summary" / "throughput_by_scenario.png"
+    lat_png_scenario = root / "experiments" / "summary" / "latency_by_scenario.png"
+
+    def has_sufficient_metrics(df: pd.DataFrame) -> bool:
+        if "rps_mean" not in df.columns:
+            return False
+        s = pd.to_numeric(df["rps_mean"], errors="coerce")
+        if not s.notna().any():
+            return False
+        # If most rows are empty, treat it as insufficient and fall back.
+        return (s.notna().sum() / max(len(s), 1)) >= 0.5
 
     doc = Document()
 
@@ -120,20 +136,44 @@ def main() -> None:
     doc.add_paragraph("Metrics: requests/sec, time per request (mean), failed requests; plus docker stats sampling.")
 
     doc.add_heading("3. Results", level=1)
-    if summary_csv.exists():
-        df = pd.read_csv(summary_csv)
-        cols = ["profile", "scenario", "rps_mean", "rps_std", "tpr_mean", "tpr_std", "failed_sum"]
-        df2 = df[[c for c in cols if c in df.columns]].copy()
-        add_table_from_df(doc, df2, "Table 1. Aggregated results by profile and scenario (from artifact outputs).")
+    table_title = "Table 1. Aggregated results (from artifact outputs)."
+    if summary_csv_profile.exists():
+        dfp = pd.read_csv(summary_csv_profile)
+        if has_sufficient_metrics(dfp):
+            cols = ["profile", "scenario", "rps_mean", "rps_std", "tpr_mean", "tpr_std", "failed_sum"]
+            df2 = dfp[[c for c in cols if c in dfp.columns]].copy()
+            # Drop rows that have no meaningful metrics.
+            if "rps_mean" in df2.columns:
+                df2["rps_mean"] = pd.to_numeric(df2["rps_mean"], errors="coerce")
+                df2 = df2[df2["rps_mean"].notna()].copy()
+            add_table_from_df(doc, df2, table_title)
+        elif summary_csv_scenario.exists():
+            dfs = pd.read_csv(summary_csv_scenario)
+            cols = ["scenario", "rps_mean", "rps_std", "tpr_mean", "tpr_std", "failed_sum"]
+            df2 = dfs[[c for c in cols if c in dfs.columns]].copy()
+            add_table_from_df(doc, df2, table_title)
+        else:
+            doc.add_paragraph("(Missing summary CSV: run analysis to generate experiments/summary/...)")
+    elif summary_csv_scenario.exists():
+        dfs = pd.read_csv(summary_csv_scenario)
+        cols = ["scenario", "rps_mean", "rps_std", "tpr_mean", "tpr_std", "failed_sum"]
+        df2 = dfs[[c for c in cols if c in dfs.columns]].copy()
+        add_table_from_df(doc, df2, table_title)
     else:
         doc.add_paragraph("(Missing summary CSV: run analysis to generate experiments/summary/...)")
 
     doc.add_heading("3.1 Throughput", level=2)
-    add_figure(doc, thr_png, "Figure 1. Throughput (requests/sec mean) by scenario, grouped by profile.")
+    if thr_png_profile.exists():
+        add_figure(doc, thr_png_profile, "Figure 1. Throughput (requests/sec mean) by scenario, grouped by profile.")
+    else:
+        add_figure(doc, thr_png_scenario, "Figure 1. Throughput (requests/sec mean) by scenario.")
     add_placeholder(doc, "Explain throughput trends and why profiles differ.")
 
     doc.add_heading("3.2 Latency", level=2)
-    add_figure(doc, lat_png, "Figure 2. Latency (time per request mean, ms) by scenario, grouped by profile.")
+    if lat_png_profile.exists():
+        add_figure(doc, lat_png_profile, "Figure 2. Latency (time per request mean, ms) by scenario, grouped by profile.")
+    else:
+        add_figure(doc, lat_png_scenario, "Figure 2. Latency (time per request mean, ms) by scenario.")
     add_placeholder(doc, "Explain latency trends and any bottlenecks observed.")
 
     doc.add_heading("4. Discussion: Validity and limitations", level=1)
